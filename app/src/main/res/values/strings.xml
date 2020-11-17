@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">CaidaDetect</string>
+    <string name="message">Watch face tapped</string>
+    <string name="my_analog_name">CaidaDetect</string>
+    <string name="title_activity_fullscreen">FullscreenActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="title_activity_main_wear">MainWearActivity</string>
+    <!--
+    This string is used for square devices and overridden by hello_world in
+    values-round/strings.xml for round devices.
+    -->
+    <string name="default_time_text">23:59</string>
+    <string name="service_status_button">STATUS</string>
+</resources>

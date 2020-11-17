@@ -1,0 +1,4 @@
+<resources>
+    <string name="default_time_text">23:59</string>
+    <string name="service_status_button">STATUS</string>
+</resources>
