@@ -3,12 +3,16 @@ package com.aberaza.wearable.alertacaida.app
 
 import android.content.Intent
 import android.content.Context
+import android.content.res.AssetManager
 import android.os.Bundle
 
 import android.os.ResultReceiver
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.JobIntentService
 import kotlin.math.PI
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 // actions that this
 // IntentService can perform, e.g. ACTION_FETCH_NEW_ITEMS
@@ -33,18 +37,24 @@ const val FAILURE_CODE = -1
  * helper methods.
  */
 class CrashDetectService() : JobIntentService() {
-    val _tag = this::class.java.simpleName
-    protected var resultReceiver: ResultReceiver? = null
-    var model: FallDetector = Bourke()
+    private val _tag = this::class.java.simpleName
+    private val RMSE_LIMIT : Float = 3.0f
+    private val assetManager: AssetManager = CONTEXT.assets
+    private var resultReceiver: ResultReceiver? = null
+    private var model: FallDetector = Hybrid(RMSE_LIMIT, assetManager)
 
+    /*
     constructor(detectionModel: DetectModel? = DetectModel.BOURKE): this() {
         when(detectionModel){
             DetectModel.BOURKE -> model = Bourke()
+            DetectModel.HYBRID -> model = Hybrid(assetManager)
             else -> model = Bourke()
         }
     }
+    */
 
     override fun onHandleWork(intent: Intent) {
+        Log.d(_tag, "onHandleWork(Intent) called")
         resultReceiver = intent.getParcelableExtra(RECEIVER_PARAM)
         if(resultReceiver == null){
             Log.wtf(_tag, "No receiver declared. Nowhere to send back the result")
@@ -53,6 +63,7 @@ class CrashDetectService() : JobIntentService() {
         onHandleIntent(intent)
     }
     fun onHandleIntent(intent: Intent?) {
+        Log.d(_tag, "onHandleIntent() called")
         when (intent?.action) {
             ACTION_CRASH_DETECT -> handleCrashDetect(intent)
         }
@@ -63,11 +74,12 @@ class CrashDetectService() : JobIntentService() {
      * parameters.
      */
     private fun handleCrashDetect(intent: Intent) {
+        Log.d(_tag, "handleCrashDetect(Intent) called")
         val preFall = intent.getFloatArrayExtra(PREFALL_PARAM)
         val postFall = intent.getFloatArrayExtra(POSTFALL_PARAM)
         val sid = intent.getStringExtra(SID_PARAM)?:""
         val start = timeStamp
-        val isFall: Boolean = model?.isFall(preFall!!, postFall!!) ?: false
+        val isFall: Boolean = model.isFall(preFall!!, postFall!!) ?: false
         Log.i(_tag, "DETECTION TIME :: ${timeStamp  -  start }ms")
         //val resultCode = if(isFall) FallResult.IS_FALL else FallResult.IS_NOT
         //resultReceiver?.send(resultCode.ordinal, null)
@@ -86,7 +98,7 @@ class CrashDetectService() : JobIntentService() {
         resultReceiver!!.send(code, response)
     }
     override fun toString(): String = StringBuilder().apply {
-        this.append(" [model=${model?.name?: "none"}]")
+        this.append(" [model=${model.name ?: "none"}]")
     }.toString()
 
     companion object Queued {
@@ -99,6 +111,8 @@ class CrashDetectService() : JobIntentService() {
          */
         @JvmStatic
         fun startActionCrash(context: Context, preFall: FloatArray, postFall: FloatArray, sid: String, receiver: ResultReceiver) {
+            Log.d("Queued", "startActionCrash() called")
+            Toast.makeText(context, "JODER YA", Toast.LENGTH_LONG).show()
             val intent = Intent(context, CrashDetectService::class.java).apply {
                 action = ACTION_CRASH_DETECT
                 putExtra(PREFALL_PARAM, preFall)
@@ -120,6 +134,41 @@ abstract class FallDetector(val name: String) {
     abstract fun isFall(preFall:FloatArray, postFall:FloatArray) : Boolean
 }
 
+class Hybrid(private val rmseLimit: Float = Model.RMS_LIMIT, assetManager: AssetManager): FallDetector("HybridModel"){
+    private val _tag = this::class.java.simpleName
+    private var interpreter: ModelInterpreter = ModelInterpreter(assetManager)
+
+
+    private fun rmse(y: FloatArray, pred:FloatArray): Float {
+        if (y.size != pred.size){
+            return 0.0f
+        }
+        var cumul = 0.0f
+        for (i in 0..y.size){
+            cumul += (y[i]-pred[i]).pow(2)
+        }
+        cumul /= y.size
+        return sqrt(cumul)
+    }
+    private fun rmse(y: FloatArray, pred:Array<Float>): Float {
+        val predArray = FloatArray(pred.size){pred[it]}
+        return rmse(y, predArray)
+    }
+
+    override fun isFall(preFall: FloatArray, postFall: FloatArray): Boolean {
+        if(interpreter == null){
+            Log.e(_tag, "interpreter was not initialized")
+            return false
+        }
+        val start = System.currentTimeMillis()
+        val prediction: Array<Float> = interpreter!!.predict(preFall)
+        val isFall: Boolean = rmse(postFall, prediction) >= this.rmseLimit
+        Log.i(_tag,"Prediction in ${start - System.currentTimeMillis()}" )
+        return isFall
+    }
+}
+
+/*
 class Bourke(val UFT: Float = 3.0f,  val LFT: Float = 0.6f,  val filter: IIRFilter? = null) : FallDetector("bourke") {
 
     override fun isFall(preFall: FloatArray, postFall: FloatArray): Boolean {
@@ -137,8 +186,8 @@ class Bourke(val UFT: Float = 3.0f,  val LFT: Float = 0.6f,  val filter: IIRFilt
         this.append(" $name :: [UFT=$UFT, LFT=$LFT, Filter=${filter!=null}")
     }.toString()
 }
-
-class IIRFilter(val fm:Int, val fc: Float, var y0:Float = 0.0f ){
+*/
+class IIRFilter(val fm:Int = Model.SAMPLING_RATE, val fc: Float=Model.IIR_LPF, var y0:Float = 0.0f ){
 
     val T: Float
         get() = 1/fm.toFloat()

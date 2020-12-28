@@ -48,8 +48,6 @@ fun getAccelServiceState(): ServiceState =
 
 fun setAccelServiceState(status: ServiceState) = setValue(serviceState, status.name)
 
-
-
 fun getAccelServicePrecrashBufferLength(): Int = PREFS.getInt(accelBufferPrecrashLength, 200)
 fun getAccelServicePostcrashBufferLength(): Int = PREFS.getInt(accelBufferPostcrashLength, 50)
 fun getAccelServiceBufferLength(): Int = getAccelServicePrecrashBufferLength() + getAccelServicePostcrashBufferLength()

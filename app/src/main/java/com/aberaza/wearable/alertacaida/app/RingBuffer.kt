@@ -19,13 +19,18 @@ fun vectorModule(vector: FloatArray): Float {
  * - [capacity] Keeps track of how many items are currently in the queue
  */
 class RingBuffer<T>(val maxSize:Int = 10) {
-    private val TAG = "RingBuffer"
+    private val _tag = this::class.java.simpleName
     private var preLength: Int? = null
     private var postLength: Int? = null
 
     constructor(preCrash : Int = 0, postCrash:Int = 0): this(preCrash + postCrash) {
         preLength = preCrash
         postLength = postCrash
+    }
+
+    constructor(timesteps: Int = 0, stride: Int = 0, prediction: Int = 0) : this(timesteps) {
+        preLength = timesteps
+        postLength = prediction + stride - timesteps
     }
 
 
@@ -74,7 +79,7 @@ class RingBuffer<T>(val maxSize:Int = 10) {
     val previous: T?
         get() {
             val index = if(head > 0) (head - 1) else (maxSize - 1)
-            //Log.w(TAG, "Try to access index $index")
+            //Log.w(_tag, "Try to access index $index")
             if (capacity > 1) return array[index]
             return null
         }
@@ -114,7 +119,7 @@ class RingBuffer<T>(val maxSize:Int = 10) {
 }
 
 class FloatRingBuffer(val maxSize: Int = 10){
-    private val TAG = "FloatRingBuffer"
+    private val _tag = this::class.java.simpleName
     private var preLength: Int? = null
     private var postLength: Int? = null
 
@@ -123,6 +128,10 @@ class FloatRingBuffer(val maxSize: Int = 10){
         postLength = postCrash
     }
 
+    constructor(in_timesteps : Int = 0, out_timesteps:Int = 0, stride: Int = 0): this(stride + out_timesteps) {
+        preLength = stride
+        postLength = out_timesteps
+    }
 
     private val array = FloatArray(maxSize)
 
@@ -165,7 +174,7 @@ class FloatRingBuffer(val maxSize: Int = 10){
     val previous: Float?
         get() {
             val index = if(head > 0) (head - 1) else (maxSize - 1)
-            //Log.w(TAG, "Try to access index $index")
+            //Log.w(_tag, "Try to access index $index")
             if (capacity > 1) return array[index]
             return null
         }

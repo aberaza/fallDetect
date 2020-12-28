@@ -16,15 +16,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 import java.lang.ref.WeakReference
 
-import kotlin.math.abs
 import kotlin.math.floor
 
 
-
 class AccelSensorRead : Service(), SensorEventListener {
-
-    private val _tag = "AccelSensorRead"
-
+    private val _tag = this::class.java.simpleName
     //private var status = ServiceState.STOPPED
     private var sessionStatus = SessionState.IDLE
 
@@ -39,19 +35,17 @@ class AccelSensorRead : Service(), SensorEventListener {
         }
         set(sid) { field = setUID(sid) as String }
 
-
-
     /* Sensors and Manager */
     private lateinit var sensorManager: SensorManager
     private lateinit var accelSensor: Sensor
 
     /* Network Conectivity */
-
     private val _awsApiUrl = BuildConfig.API_URL
     private val netManager = NetManager(this, _awsApiUrl)
 
     /* Buffer and Settings */
-    private var motionThreshold: Float = SensorManager.STANDARD_GRAVITY * 1.5f
+    //private var motionThreshold: Float = SensorManager.STANDARD_GRAVITY * 1.5f
+    private val bourkeUperLimit = Model.BOURKE_LIMIT * SensorManager.GRAVITY_EARTH
     private var samplesAfterHit: Int = 50 //= getAccelServicePostcrashBufferLength()
 
     private lateinit var accelBuffer: FloatRingBuffer // = FloatRingBuffer(getAccelServicePrecrashBufferLength(), getAccelServicePostcrashBufferLength())
@@ -118,9 +112,10 @@ class AccelSensorRead : Service(), SensorEventListener {
     private fun startService() {
         Log.v(_tag, "startService()")
         if(status == ServiceState.STOPPED){
-            accelBuffer = FloatRingBuffer(getAccelServicePrecrashBufferLength(), getAccelServicePostcrashBufferLength())
-            sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_NORMAL)
-            //iirFilter = IIRFilter(accelSensor.minDelay,
+            //accelBuffer = FloatRingBuffer(getAccelServicePrecrashBufferLength(), getAccelServicePostcrashBufferLength())
+            //sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_NORMAL)
+            accelBuffer = FloatRingBuffer(Model.IN_TIMESTEPS, Model.OUT_TIMESTEPS, Model.STRIDE)
+            sensorManager.registerListener(this, accelSensor, Model.SAMPLING_PERIOD)
             changeEpisodeStatus(SessionState.RECORDING)
             status = ServiceState.STARTED
             toast(this, "AccelSensorRead Started ${status.name}")
@@ -139,6 +134,10 @@ class AccelSensorRead : Service(), SensorEventListener {
     }
 
     private fun changeEpisodeStatus(status: SessionState) {
+        if(sessionStatus == status){
+            Log.w(_tag, "Update sessionStatus with same status?? how come??")
+            return
+        }
         sessionStatus = status
         toast(this, "SET sessionStatus : ${status.name}")
         Intent(AccelServiceBroadcast.STATUS_UPDATE.type).also {intent ->
@@ -208,6 +207,7 @@ class AccelSensorRead : Service(), SensorEventListener {
     }
 
     private var extraSamplesCounter : Int = 0
+    /*
     private fun processAccelSample(sample:FloatArray, checkThreshold:Boolean = true){
 
         accelBuffer.enqueue(vectorModule(sample))
@@ -222,27 +222,40 @@ class AccelSensorRead : Service(), SensorEventListener {
             if(++extraSamplesCounter == samplesAfterHit) changeEpisodeStatus(SessionState.COMPUTING)
         }
     }
+    */
+    private fun processAccelSampleBourke(sample:FloatArray, checkThreshold: Boolean = true){
+        accelBuffer.enqueue(vectorModule(sample))
+
+        if(checkThreshold && accelBuffer.current > bourkeUperLimit){
+            changeEpisodeStatus(SessionState.DETECTED)
+            extraSamplesCounter = 0
+        }
+    }
+    private fun processFallSample(sample: FloatArray){
+        accelBuffer.enqueue(vectorModule(sample))
+        if(++extraSamplesCounter == samplesAfterHit) changeEpisodeStatus(SessionState.COMPUTING)
+    }
 
     override fun onSensorChanged(event: SensorEvent?) {
         when (event?.sensor?.type) {
             Sensor.TYPE_ACCELEROMETER -> {
                 when(sessionStatus){
-                    SessionState.RECORDING -> processAccelSample(event.values, true) //if threshold fullfilled will switch to DETECTED
-                    SessionState.DETECTED -> processAccelSample(event.values, false) //After N samples will switch to COMPUTING
-                    SessionState.COMPUTING -> processAccelSample(event.values, false) //Keep adding samples to buffer
+                    SessionState.RECORDING -> processAccelSampleBourke(event.values, true) //if threshold fullfilled will switch to DETECTED
+                    SessionState.DETECTED -> processFallSample(event.values) //After N samples will switch to COMPUTING
+                    SessionState.COMPUTING -> processAccelSampleBourke(event.values, false) //Keep adding samples to buffer
                     SessionState.IDLE -> Log.w(_tag, "sessionStatus is IDLE")
                 }
             }
         }
     }
 
-
-
     private class CrashResultReceiver(val service: WeakReference<AccelSensorRead>, handler: Handler?) : ResultReceiver(handler) {
+        private val _tag = this::class.java.simpleName
 
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+            Log.d(_tag, "onReceiveResult(${resultCode})")
             val sid = resultData?.getString(SID_KEY)?:""
-            var serviceRef = service.get()
+            val serviceRef = service.get()
 
             when(resultCode){
                 SUCCESS_CODE -> {
@@ -260,7 +273,5 @@ class AccelSensorRead : Service(), SensorEventListener {
             super.onReceiveResult(resultCode, resultData)
         }
     }
-
-
 }
 
