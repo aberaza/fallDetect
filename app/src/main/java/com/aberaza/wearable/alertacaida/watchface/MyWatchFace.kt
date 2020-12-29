@@ -19,8 +19,11 @@ import android.widget.Toast
 import com.aberaza.wearable.alertacaida.R
 import com.aberaza.wearable.alertacaida.app.AccelSensorRead
 import com.aberaza.wearable.alertacaida.app.Action
+import com.aberaza.wearable.alertacaida.app.timeStamp
 import java.lang.ref.WeakReference
 import java.util.*
+import kotlin.math.cos
+import kotlin.math.sin
 
 
 /**
@@ -413,8 +416,8 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
         }
 
         override fun onDraw(canvas: Canvas, bounds: Rect) {
-            val now = System.currentTimeMillis()
-            mCalendar.timeInMillis = now
+            //val now = timeStamp
+            mCalendar.timeInMillis = timeStamp
 
             drawBackground(canvas)
             drawWatchFace(canvas)
@@ -434,7 +437,6 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
         }
 
         private fun drawWatchFace(canvas: Canvas) {
-
             /*
              * Draw ticks. Usually you will want to bake this directly into the photo, but in
              * cases where you want to allow users to select their own photos, this dynamically
@@ -444,10 +446,10 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
             val outerTickRadius = mCenterX
             for (tickIndex in 0..11) {
                 val tickRot = (tickIndex.toDouble() * Math.PI * 2.0 / 12).toFloat()
-                val innerX = Math.sin(tickRot.toDouble()).toFloat() * innerTickRadius
-                val innerY = (-Math.cos(tickRot.toDouble())).toFloat() * innerTickRadius
-                val outerX = Math.sin(tickRot.toDouble()).toFloat() * outerTickRadius
-                val outerY = (-Math.cos(tickRot.toDouble())).toFloat() * outerTickRadius
+                val innerX = sin(tickRot.toDouble()).toFloat() * innerTickRadius
+                val innerY = (-cos(tickRot.toDouble())).toFloat() * innerTickRadius
+                val outerX = sin(tickRot.toDouble()).toFloat() * outerTickRadius
+                val outerY = (-cos(tickRot.toDouble())).toFloat() * outerTickRadius
                 canvas.drawLine(mCenterX + innerX, mCenterY + innerY,
                         mCenterX + outerX, mCenterY + outerY, mTickAndCirclePaint)
             }
@@ -567,9 +569,9 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
         fun handleUpdateTimeMessage() {
             invalidate()
             if (shouldTimerBeRunning()) {
-                val timeMs = System.currentTimeMillis()
-                val delayMs = INTERACTIVE_UPDATE_RATE_MS - timeMs % INTERACTIVE_UPDATE_RATE_MS
-                mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs)
+                //val timeMs = System.currentTimeMillis()
+                val delayMs = INTERACTIVE_UPDATE_RATE_MS - timeStamp % INTERACTIVE_UPDATE_RATE_MS
+                mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, timeStamp)
             }
         }
     }

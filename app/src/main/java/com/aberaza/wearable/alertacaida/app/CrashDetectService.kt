@@ -8,11 +8,9 @@ import android.os.Bundle
 
 import android.os.ResultReceiver
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.JobIntentService
-import kotlin.math.PI
-import kotlin.math.pow
-import kotlin.math.sqrt
+import com.aberaza.wearable.alertacaida.app.helpers.FallDetector
+import com.aberaza.wearable.alertacaida.app.helpers.HybridModel
 
 // actions that this
 // IntentService can perform, e.g. ACTION_FETCH_NEW_ITEMS
@@ -38,20 +36,10 @@ const val FAILURE_CODE = -1
  */
 class CrashDetectService() : JobIntentService() {
     private val _tag = this::class.java.simpleName
-    private val RMSE_LIMIT : Float = 3.0f
+    //private val RMSE_LIMIT : Float = 3.0f
     private val assetManager: AssetManager = CONTEXT.assets
     private var resultReceiver: ResultReceiver? = null
-    private var model: FallDetector = Hybrid(RMSE_LIMIT, assetManager)
-
-    /*
-    constructor(detectionModel: DetectModel? = DetectModel.BOURKE): this() {
-        when(detectionModel){
-            DetectModel.BOURKE -> model = Bourke()
-            DetectModel.HYBRID -> model = Hybrid(assetManager)
-            else -> model = Bourke()
-        }
-    }
-    */
+    private var model: FallDetector = HybridModel(Model.RMSE_LIMIT, assetManager)
 
     override fun onHandleWork(intent: Intent) {
         Log.d(_tag, "onHandleWork(Intent) called")
@@ -62,7 +50,7 @@ class CrashDetectService() : JobIntentService() {
         }
         onHandleIntent(intent)
     }
-    fun onHandleIntent(intent: Intent?) {
+    private fun onHandleIntent(intent: Intent?) {
         Log.d(_tag, "onHandleIntent() called")
         when (intent?.action) {
             ACTION_CRASH_DETECT -> handleCrashDetect(intent)
@@ -112,7 +100,6 @@ class CrashDetectService() : JobIntentService() {
         @JvmStatic
         fun startActionCrash(context: Context, preFall: FloatArray, postFall: FloatArray, sid: String, receiver: ResultReceiver) {
             Log.d("Queued", "startActionCrash() called")
-            Toast.makeText(context, "JODER YA", Toast.LENGTH_LONG).show()
             val intent = Intent(context, CrashDetectService::class.java).apply {
                 action = ACTION_CRASH_DETECT
                 putExtra(PREFALL_PARAM, preFall)
@@ -130,77 +117,3 @@ class CrashDetectService() : JobIntentService() {
     }
 }
 
-abstract class FallDetector(val name: String) {
-    abstract fun isFall(preFall:FloatArray, postFall:FloatArray) : Boolean
-}
-
-class Hybrid(private val rmseLimit: Float = Model.RMS_LIMIT, assetManager: AssetManager): FallDetector("HybridModel"){
-    private val _tag = this::class.java.simpleName
-    private var interpreter: ModelInterpreter = ModelInterpreter(assetManager)
-
-
-    private fun rmse(y: FloatArray, pred:FloatArray): Float {
-        if (y.size != pred.size){
-            return 0.0f
-        }
-        var cumul = 0.0f
-        for (i in 0..y.size){
-            cumul += (y[i]-pred[i]).pow(2)
-        }
-        cumul /= y.size
-        return sqrt(cumul)
-    }
-    private fun rmse(y: FloatArray, pred:Array<Float>): Float {
-        val predArray = FloatArray(pred.size){pred[it]}
-        return rmse(y, predArray)
-    }
-
-    override fun isFall(preFall: FloatArray, postFall: FloatArray): Boolean {
-        if(interpreter == null){
-            Log.e(_tag, "interpreter was not initialized")
-            return false
-        }
-        val start = System.currentTimeMillis()
-        val prediction: Array<Float> = interpreter!!.predict(preFall)
-        val isFall: Boolean = rmse(postFall, prediction) >= this.rmseLimit
-        Log.i(_tag,"Prediction in ${start - System.currentTimeMillis()}" )
-        return isFall
-    }
-}
-
-/*
-class Bourke(val UFT: Float = 3.0f,  val LFT: Float = 0.6f,  val filter: IIRFilter? = null) : FallDetector("bourke") {
-
-    override fun isFall(preFall: FloatArray, postFall: FloatArray): Boolean {
-        // Get only 1 sec before, 1 sec after
-        val shortPre: FloatArray = preFall.sliceArray((preFall.size - 50) until preFall.size)
-        val shortPost: FloatArray = postFall.sliceArray(0..25)
-        val episode = filter?.filter(shortPre.plus(shortPost))?:shortPre.plus(shortPost)
-        // If filter given, do it
-        filter?.reset()
-
-        return episode.max()?:1.0f >= UFT || episode.min()?:1.0f <= LFT
-    }
-
-    override fun toString(): String = StringBuilder().apply {
-        this.append(" $name :: [UFT=$UFT, LFT=$LFT, Filter=${filter!=null}")
-    }.toString()
-}
-*/
-class IIRFilter(val fm:Int = Model.SAMPLING_RATE, val fc: Float=Model.IIR_LPF, var y0:Float = 0.0f ){
-
-    val T: Float
-        get() = 1/fm.toFloat()
-    val RC: Float
-        get() = 1/(2* PI.toFloat()*fc)
-    val alpha: Float = T/(T+RC)
-
-    fun y(x:Float):Float = (1-alpha)*y0 + alpha*x
-
-    fun filter(signal: FloatArray): FloatArray = (signal.map{ x -> y(x)}).toFloatArray()
-    fun reset() { y0 = 0.0f}
-
-    override fun toString(): String = StringBuilder().apply {
-        this.append(" [fm=$fm, fc=$fc || T=$T, RC=$RC, a=$alpha]")
-    }.toString()
-}

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.aberaza.wearable.alertacaida.app
 
 import android.content.Context
@@ -18,7 +20,7 @@ enum class RequestType {
 class NetRequest(val uri:String, val type: RequestType = RequestType.GET, val body : String="")
 
 class NetManager(private val context: Context, private val url: String) {
-    private val _tag = "NetManager"
+    private val _tag = this::class.java.simpleName
 
     private val networkQueue = mutableListOf<NetRequest>()
 
@@ -54,7 +56,8 @@ class NetManager(private val context: Context, private val url: String) {
 
     private fun doPost(request: NetRequest) = doPost(request.body, request.uri)
     private fun doPost(data: String, _url: String = url) {
-        toast(context, "Send Data!")
+        //toast
+        Log.i(_tag, "Send data to server")
         try {
             Fuel.post(_url)
                 .jsonBody(data)

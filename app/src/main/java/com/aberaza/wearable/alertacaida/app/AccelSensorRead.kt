@@ -9,8 +9,8 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.*
 import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.aberaza.wearable.alertacaida.BuildConfig
+import com.aberaza.wearable.alertacaida.app.helpers.FloatRingBuffer
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
@@ -45,8 +45,8 @@ class AccelSensorRead : Service(), SensorEventListener {
 
     /* Buffer and Settings */
     //private var motionThreshold: Float = SensorManager.STANDARD_GRAVITY * 1.5f
-    private val bourkeUperLimit = Model.BOURKE_LIMIT * SensorManager.GRAVITY_EARTH
-    private var samplesAfterHit: Int = 50 //= getAccelServicePostcrashBufferLength()
+    private val bourkeUpperLimit = Model.BOURKE_LIMIT * SensorManager.GRAVITY_EARTH
+    // private var samplesAfterHit: Int = 50 //= getAccelServicePostcrashBufferLength()
 
     private lateinit var accelBuffer: FloatRingBuffer // = FloatRingBuffer(getAccelServicePrecrashBufferLength(), getAccelServicePostcrashBufferLength())
 
@@ -94,7 +94,7 @@ class AccelSensorRead : Service(), SensorEventListener {
         CONTEXT = this
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) //results in m/s^2
-        samplesAfterHit = getAccelServicePostcrashBufferLength()
+        //samplesAfterHit = getAccelServicePostcrashBufferLength()
 
         crashResponseReceiver = CrashResultReceiver(WeakReference(this), Handler())
         startService()
@@ -115,7 +115,9 @@ class AccelSensorRead : Service(), SensorEventListener {
             //accelBuffer = FloatRingBuffer(getAccelServicePrecrashBufferLength(), getAccelServicePostcrashBufferLength())
             //sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_NORMAL)
             accelBuffer = FloatRingBuffer(Model.IN_TIMESTEPS, Model.OUT_TIMESTEPS, Model.STRIDE)
+            Log.d(_tag, "SETUP sampling period to ${Model.SAMPLING_PERIOD}")
             sensorManager.registerListener(this, accelSensor, Model.SAMPLING_PERIOD)
+            //sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_NORMAL)
             changeEpisodeStatus(SessionState.RECORDING)
             status = ServiceState.STARTED
             toast(this, "AccelSensorRead Started ${status.name}")
@@ -156,7 +158,7 @@ class AccelSensorRead : Service(), SensorEventListener {
                         accelSensor.resolution,
                         accelSensor.maximumRange,
                         floor(1000000.0 / accelSensor.minDelay).toInt(),
-                        System.currentTimeMillis(),
+                        timeStamp, //System.currentTimeMillis(),
                         accelBuffer.maxSize.toLong(),
                         accelBuffer.contents(),
                         false
@@ -223,20 +225,29 @@ class AccelSensorRead : Service(), SensorEventListener {
         }
     }
     */
+
     private fun processAccelSampleBourke(sample:FloatArray, checkThreshold: Boolean = true){
         accelBuffer.enqueue(vectorModule(sample))
 
-        if(checkThreshold && accelBuffer.current > bourkeUperLimit){
+        if(checkThreshold && accelBuffer.current > bourkeUpperLimit){
+            Log.d(_tag, "computeTime start: $timeStamp")
             changeEpisodeStatus(SessionState.DETECTED)
             extraSamplesCounter = 0
         }
     }
     private fun processFallSample(sample: FloatArray){
         accelBuffer.enqueue(vectorModule(sample))
-        if(++extraSamplesCounter == samplesAfterHit) changeEpisodeStatus(SessionState.COMPUTING)
+        if(++extraSamplesCounter == Model.Y_SHIFT) changeEpisodeStatus(SessionState.COMPUTING)
     }
 
+    //var lastTstamp: Long = System.currentTimeMillis() * 1000
     override fun onSensorChanged(event: SensorEvent?) {
+        /*
+        if (event != null) {
+            val ts: Long = event.timestamp  // timestamp is in nano seconds
+            Log.d(_tag, "TSTAMP ${ts}, Rate = ${1000000000/(ts - lastTstamp)}Hz, Period=${(ts - lastTstamp)/1000000000.0f}")
+            lastTstamp = ts
+        }*/
         when (event?.sensor?.type) {
             Sensor.TYPE_ACCELEROMETER -> {
                 when(sessionStatus){
@@ -253,7 +264,7 @@ class AccelSensorRead : Service(), SensorEventListener {
         private val _tag = this::class.java.simpleName
 
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
-            Log.d(_tag, "onReceiveResult(${resultCode})")
+            Log.d(_tag, "onReceiveResult(${resultCode} computeTime: $timeStamp)")
             val sid = resultData?.getString(SID_KEY)?:""
             val serviceRef = service.get()
 

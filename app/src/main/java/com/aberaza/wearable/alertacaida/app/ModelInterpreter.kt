@@ -15,8 +15,8 @@ class ModelInterpreter constructor(assets: AssetManager) {
     private val MODEL_PATH = "tfliteModel.tflite"
     private var interpreter: Interpreter?=null
 
-    private var inputs = Array<Array<FloatArray>>(1,{Array<FloatArray>(200, {FloatArray(1)})})
-    private var outputs = Array<Array<FloatArray>>(1,{Array<FloatArray>(100, {FloatArray(1)})})
+    private var inputs = Array<Array<FloatArray>>(1,{Array<FloatArray>(Model.IN_TIMESTEPS, {FloatArray(1)})})
+    private var outputs = Array<Array<FloatArray>>(1,{Array<FloatArray>(Model.OUT_TIMESTEPS, {FloatArray(1)})})
 
     init{
         try {
@@ -54,18 +54,19 @@ class ModelInterpreter constructor(assets: AssetManager) {
         return outputArray
         */
 
-        Log.d(_tag, "Inputs are ${Arrays.toString(accelData)}")
+        //Log.d(_tag, "Inputs are ${Arrays.toString(accelData)}")
         //val pruebaIn = Array<Array<FloatArray>>(1) { batch -> Array<FloatArray>(100){ step -> FloatArray(1){accelData[step]}}}
+        Log.d(_tag, "accelData length = ${accelData.size}")
         for (index in accelData.indices) {
             Log.d(_tag, "Populate inputs[${index}] with ${accelData[index]}")
             inputs[0][index][0] = accelData[index]
         }
-        Log.d(_tag, "Inputs parsed ${Arrays.toString(inputs[0])}")
-        val pruebaOut = Array<Array<FloatArray>>(1,{Array<FloatArray>(100, {FloatArray(1)})})
+        //Log.d(_tag, "Inputs parsed ${Arrays.toString(inputs[0][0])}")
+        //val pruebaOut = Array<Array<FloatArray>>(1,{Array<FloatArray>(100, {FloatArray(1)})})
         //var testInput = ByteBuffer.allocateDirect(1*100*1*BYTE_SIZE(Float))
-        interpreter!!.run(inputs, pruebaOut)
-        val flattenedArray = Array<Float>(100){ pruebaOut[0][it][0]}
-        Log.d(_tag, "Output is ${Arrays.toString(flattenedArray)}")
+        interpreter!!.run(inputs, outputs)
+        val flattenedArray = Array<Float>(Model.OUT_TIMESTEPS){ outputs[0][it][0]}
+        //Log.d(_tag, "Output is ${Arrays.toString(flattenedArray)}")
         return flattenedArray
     }
 
