@@ -68,7 +68,7 @@ class CrashDetectService() : JobIntentService() {
         val sid = intent.getStringExtra(SID_PARAM)?:""
         val start = timeStamp
         val isFall: Boolean = model.isFall(preFall!!, postFall!!) ?: false
-        Log.i(_tag, "DETECTION TIME :: ${timeStamp  -  start }ms")
+        Log.i(_tag, "DETECTION TIME :: ${timeStamp  -  start }ms :: isFall $isFall")
         //val resultCode = if(isFall) FallResult.IS_FALL else FallResult.IS_NOT
         //resultReceiver?.send(resultCode.ordinal, null)
         doCallback(SUCCESS_CODE, sid, isFall)

@@ -9,6 +9,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.*
 import android.util.Log
+import android.widget.Toast
 import com.aberaza.wearable.alertacaida.BuildConfig
 import com.aberaza.wearable.alertacaida.app.helpers.FloatRingBuffer
 
@@ -195,6 +196,14 @@ class AccelSensorRead : Service(), SensorEventListener {
         netManager.postJson(serializedEpisode)
     }
 
+    fun notifyFall(isFall: Boolean){
+        if(isFall){
+            toast(this, "You Fell!")
+        }else{
+            toast(this, "You're safe!")
+        }
+    }
+
     private val processingEpisodesQueue: MutableList<Episode>
         get() {
             TODO()
@@ -273,7 +282,9 @@ class AccelSensorRead : Service(), SensorEventListener {
                     val episode: Episode? = serviceRef?.dequeueEpisode(sid)
                     if (episode != null) {
                         episode.isFall = resultData?.getBoolean(IS_FALL_KEY)
-                        serviceRef?.saveEpisode(episode)
+                        //toast(this, "You Fell!")
+                        serviceRef.notifyFall(episode.isFall?:false)
+                        serviceRef.saveEpisode(episode)
                     }
                 }
                 FAILURE_CODE -> {
