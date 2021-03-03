@@ -8,12 +8,10 @@ import android.graphics.*
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
-import android.support.wearable.complications.ComplicationData
-import android.support.wearable.complications.rendering.ComplicationDrawable
 import android.support.wearable.watchface.CanvasWatchFaceService
 import android.support.wearable.watchface.WatchFaceService
 import android.support.wearable.watchface.WatchFaceStyle
-import android.util.SparseArray
+import android.text.TextPaint
 import android.view.SurfaceHolder
 import android.widget.Toast
 import com.aberaza.wearable.alertacaida.R
@@ -151,10 +149,14 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
         private lateinit var mTickAndCirclePaint: Paint
 
         private lateinit var mBackgroundPaint: Paint
-        //private lateinit var mBackgroundBitmap: Bitmap
-        private lateinit var mGrayBackgroundBitmap: Bitmap
+        private lateinit var mAlarmBackgroundPaint: Paint
+        //private lateinit var mGrayBackgroundBitmap: Bitmap
+
+        private lateinit var mWindowPaint: Paint
+        private lateinit var mWindowAlarmPaint: Paint
 
         // Capacidades del dispositivo
+        private var mAlarm: Boolean = false
         private var mAmbient: Boolean = false
         private var mLowBitAmbient: Boolean = false
         private var mBurnInProtection: Boolean = false
@@ -180,26 +182,34 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
 
             initializeBackground()
             initializeWatchFace()
+            initializeWindow()
         }
 
         private fun initializeBackground() {
             mBackgroundPaint = Paint().apply {
-                color = Color.BLACK
+                color = Color.RED
             }
-            /*
-            mBackgroundBitmap = BitmapFactory.decodeResource(resources, R.drawable.bg)
-
-            /* Extracts colors from background image to improve watchface style. */
-            Palette.from(mBackgroundBitmap).generate {
-                it?.let {
-                    mWatchHandHighlightColor = it.getVibrantColor(Color.RED)
-                    mWatchHandColor = it.getLightVibrantColor(Color.WHITE)
-                    mWatchHandShadowColor = it.getDarkMutedColor(Color.BLACK)
-                    updateWatchHandStyle()
-                }
+            mAlarmBackgroundPaint = Paint().apply {
+                color = Color.rgb(150, 20, 20)
             }
+        }
 
-             */
+        private fun initializeWindow() {
+            mWindowPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG).apply {
+                textAlign = Paint.Align.CENTER
+                color = Color.WHITE
+
+                textSize = 16F
+                typeface = Typeface.DEFAULT_BOLD
+
+            }
+            mWindowAlarmPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG).apply {
+                textAlign = Paint.Align.CENTER
+                color = Color.YELLOW
+
+                textSize = 16F
+                typeface = Typeface.DEFAULT_BOLD
+            }
         }
 
         private fun initializeWatchFace() {
@@ -381,7 +391,10 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
              */
             if (!mBurnInProtection && !mLowBitAmbient) {
                 initGrayBackgroundBitmap()
+            }else{
+                initializeBackground()
             }
+
         }
 
         private fun initGrayBackgroundBitmap() {
@@ -416,16 +429,17 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
         }
 
         override fun onDraw(canvas: Canvas, bounds: Rect) {
-            //val now = timeStamp
             mCalendar.timeInMillis = timeStamp
 
             drawBackground(canvas)
             drawWatchFace(canvas)
+            drawMessage(canvas)
         }
 
         private fun drawBackground(canvas: Canvas) {
-
-            if (mAmbient && (mLowBitAmbient || mBurnInProtection)) {
+            if(mAlarm){
+                canvas.drawColor(Color.RED)
+            }else if (mAmbient && (mLowBitAmbient || mBurnInProtection)) {
                 canvas.drawColor(Color.BLACK)
             } else if (mAmbient) {
                 //canvas.drawBitmap(mGrayBackgroundBitmap, 0f, 0f, mBackgroundPaint)
@@ -512,6 +526,34 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
             canvas.restore()
         }
 
+        private fun drawMessage(canvas: Canvas) {
+            //val bounds = Rect()
+
+            canvas.save()
+            //Math.PI * 2.0 / 1
+            val windowRotation : Float = (Math.PI * 2.0 / 3.0).toFloat() // Ventana a las 4
+            canvas.rotate(windowRotation, mCenterX, mCenterY)
+            canvas.drawText("activo", mCenterX + 60, mCenterY, mWindowPaint)
+            canvas.restore()
+
+            /*
+            val innerTickRadius = mCenterX - 2
+            val outerTickRadius = mCenterX - 8
+
+            val inX = sin()
+            for (tickIndex in 0..11) {
+                val tickRot = (tickIndex.toDouble() * Math.PI * 2.0 / 12).toFloat()
+                val innerX = sin(tickRot.toDouble()).toFloat() * innerTickRadius
+                val innerY = (-cos(tickRot.toDouble())).toFloat() * innerTickRadius
+                val outerX = sin(tickRot.toDouble()).toFloat() * outerTickRadius
+                val outerY = (-cos(tickRot.toDouble())).toFloat() * outerTickRadius
+                canvas.drawLine(mCenterX + innerX, mCenterY + innerY,
+                    mCenterX + outerX, mCenterY + outerY, mTickAndCirclePaint)
+            }
+
+             */
+        }
+
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
 
@@ -571,7 +613,7 @@ class CaidaWatchFaceService : CanvasWatchFaceService() {
             if (shouldTimerBeRunning()) {
                 //val timeMs = System.currentTimeMillis()
                 val delayMs = INTERACTIVE_UPDATE_RATE_MS - timeStamp % INTERACTIVE_UPDATE_RATE_MS
-                mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, timeStamp)
+                mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs)
             }
         }
     }

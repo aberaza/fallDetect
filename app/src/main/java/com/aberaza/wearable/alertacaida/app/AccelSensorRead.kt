@@ -198,9 +198,9 @@ class AccelSensorRead : Service(), SensorEventListener {
 
     fun notifyFall(isFall: Boolean){
         if(isFall){
-            toast(this, "You Fell!")
+            toast(this, "ALERTA!!")
         }else{
-            toast(this, "You're safe!")
+            toast(this, "Falsa Alarma")
         }
     }
 

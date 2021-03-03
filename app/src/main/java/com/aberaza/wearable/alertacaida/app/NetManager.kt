@@ -77,33 +77,4 @@ class NetManager(private val context: Context, private val url: String) {
             networkInfo?.isConnected ?: false
         } else false
     }
-
-    /*
-    fun sendPost(payload: String) {
-        val mURL = URL(_awsApiUrl)
-
-        with(mURL.openConnection() as HttpURLConnection) {
-            // optional default is GET
-            requestMethod = "POST"
-
-            val wr = OutputStreamWriter(outputStream)
-            wr.write(payload)
-            //wr.write(payload.toByteArray(StandardCharsets.UTF_8))
-            wr.flush()
-
-            Log.i(_tag, "URL : $url responseCode $responseCode")
-
-            BufferedReader(InputStreamReader(inputStream)).use {
-                val response = StringBuffer()
-
-                var inputLine = it.readLine()
-                while (inputLine != null) {
-                    response.append(inputLine)
-                    inputLine = it.readLine()
-                }
-                println("Response : $response")
-            }
-        }
-
-     */
 }

@@ -9,7 +9,9 @@ import java.nio.channels.FileChannel
 
 class ModelInterpreter constructor(assets: AssetManager) {
     private val _tag = this::class.java.simpleName
-    private val MODEL_PATH = "tfliteModel.tflite"
+    //private val MODEL_PATH = "tfliteModel.tflite"
+    // private val MODEL_PATH = "tfliteModel.175.dynamic.tflite"
+    private val MODEL_PATH = "tfliteModel.350.dynamic.tflite"
     private var interpreter: Interpreter?=null
 
     private var inputs = Array<Array<FloatArray>>(1,{Array<FloatArray>(Model.IN_TIMESTEPS, {FloatArray(1)})})
